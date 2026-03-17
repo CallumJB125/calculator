@@ -2,11 +2,13 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: GridIcon },
-  { to: '/exchanges', label: 'Exchanges', icon: LinkIcon },
-  { to: '/positions', label: 'Positions', icon: PieChartIcon },
-  { to: '/trades', label: 'Trade History', icon: ListIcon },
-  { to: '/taxes', label: 'Tax Report', icon: FileTextIcon },
+  { to: '/',          label: 'Dashboard',     icon: GridIcon },
+  { to: '/exchanges', label: 'Exchanges',      icon: LinkIcon },
+  { to: '/positions', label: 'Positions',      icon: PieChartIcon },
+  { to: '/trades',    label: 'Trade History',  icon: ListIcon },
+  { to: '/execution', label: 'Best Execution', icon: ScaleIcon },
+  { to: '/funding',   label: 'Funding Fees',   icon: PercentIcon },
+  { to: '/taxes',     label: 'Tax Report',     icon: FileTextIcon },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -30,7 +32,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -93,6 +95,22 @@ function ListIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+    </svg>
+  );
+}
+
+function ScaleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+    </svg>
+  );
+}
+
+function PercentIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
     </svg>
   );
 }

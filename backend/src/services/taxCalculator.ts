@@ -2,7 +2,12 @@ import { Trade, TaxEvent, TaxSummary, TaxLot } from '../types';
 
 type CostBasisMethod = 'fifo' | 'lifo' | 'hifo';
 
-export function calculateTaxes(trades: Trade[], taxYear: number, method: CostBasisMethod = 'fifo'): TaxSummary {
+export function calculateTaxes(
+  trades: Trade[],
+  taxYear: number,
+  method: CostBasisMethod = 'fifo',
+  totalDeductibleFundingFees: number = 0,
+): TaxSummary {
   const yearTrades = trades.filter(t => new Date(t.date).getFullYear() === taxYear);
 
   // Group buy lots by asset across ALL history (not just this year)
@@ -78,6 +83,7 @@ export function calculateTaxes(trades: Trade[], taxYear: number, method: CostBas
   const longTermGain = taxEvents.filter(e => e.termType === 'long').reduce((sum, e) => sum + e.gain, 0);
   const totalProceeds = taxEvents.reduce((sum, e) => sum + e.proceeds, 0);
   const totalCostBasis = taxEvents.reduce((sum, e) => sum + e.costBasis, 0);
+  const totalGain = shortTermGain + longTermGain;
 
   return {
     taxYear,
@@ -85,7 +91,9 @@ export function calculateTaxes(trades: Trade[], taxYear: number, method: CostBas
     totalCostBasis,
     shortTermGain,
     longTermGain,
-    totalGain: shortTermGain + longTermGain,
+    totalGain,
+    totalDeductibleFundingFees,
+    netTaxableGain: totalGain - totalDeductibleFundingFees,
     events: taxEvents.sort((a, b) => new Date(b.sellDate).getTime() - new Date(a.sellDate).getTime()),
   };
 }

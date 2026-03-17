@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { trades } from '../services/mockData';
+import { trades, fundingFees } from '../services/mockData';
 import { calculateTaxes } from '../services/taxCalculator';
 
 const router = Router();
@@ -12,7 +12,12 @@ router.get('/report', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'method must be fifo, lifo, or hifo' });
   }
 
-  const report = calculateTaxes(trades, year, method);
+  // Sum funding fees paid in this tax year (deductible as investment expenses)
+  const deductibleFundingFees = fundingFees
+    .filter(f => new Date(f.date).getFullYear() === year && f.amount > 0)
+    .reduce((sum, f) => sum + f.amount, 0);
+
+  const report = calculateTaxes(trades, year, method, parseFloat(deductibleFundingFees.toFixed(2)));
   return res.json(report);
 });
 

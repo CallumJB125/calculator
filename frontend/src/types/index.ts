@@ -20,6 +20,7 @@ export interface Position {
   currentValue: number;
   unrealizedPnl: number;
   unrealizedPnlPct: number;
+  totalFundingFeesPaid?: number;
 }
 
 export interface PortfolioSummary {
@@ -27,7 +28,16 @@ export interface PortfolioSummary {
   totalCostBasis: number;
   totalUnrealizedPnl: number;
   totalUnrealizedPnlPct: number;
-  byAsset: Record<string, { value: number; pnl: number }>;
+  totalFundingFeesPaid: number;
+  byAsset: Record<string, {
+    value: number;
+    pnl: number;
+    totalQty: number;
+    totalCost: number;
+    avgCostBasis: number;
+    currentPrice: number;
+    fundingFeesPaid: number;
+  }>;
   positionCount: number;
 }
 
@@ -86,5 +96,60 @@ export interface TaxSummary {
   shortTermGain: number;
   longTermGain: number;
   totalGain: number;
+  totalDeductibleFundingFees: number;
+  netTaxableGain: number;
   events: TaxEvent[];
+}
+
+export interface BrokerQuote {
+  exchangeId: string;
+  exchangeName: string;
+  connected: boolean;
+  spotPrice: number;
+  estimatedFillPrice: number;
+  slippagePct: number;
+  tradingFee: number;
+  tradingFeePct: number;
+  fundingRate: number;
+  fundingRateAnnualized: number;
+  totalCost: number;
+  netCostPerUnit: number;
+  recommendation: 'best' | 'good' | 'poor';
+  available: boolean;
+}
+
+export interface ExecutionQuoteResponse {
+  asset: string;
+  quantity: number;
+  side: string;
+  basePrice: number;
+  quotes: BrokerQuote[];
+}
+
+export interface TradableAsset {
+  symbol: string;
+  asset: string;
+  currentPrice: number;
+}
+
+export interface FundingFee {
+  id: string;
+  positionId: string;
+  exchangeId: string;
+  exchangeName: string;
+  asset: string;
+  symbol: string;
+  date: string;
+  amount: number;
+  rate: number;
+  positionSize: number;
+}
+
+export interface FundingFeeSummary {
+  totalFeesPaid: number;
+  totalFeesReceived: number;
+  netFees: number;
+  byAsset: Record<string, { paid: number; received: number; net: number }>;
+  byExchange: Record<string, { paid: number; received: number; net: number }>;
+  fees: FundingFee[];
 }

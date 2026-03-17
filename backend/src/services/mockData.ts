@@ -1,4 +1,4 @@
-import { Exchange, Position, Trade } from '../types';
+import { Exchange, Position, Trade, ExchangeFeeStructure, FundingFee } from '../types';
 
 export const exchanges: Exchange[] = [
   {
@@ -40,6 +40,14 @@ export const exchanges: Exchange[] = [
     logo: 'KC',
     connected: false,
   },
+];
+
+export const exchangeFeeStructures: ExchangeFeeStructure[] = [
+  { exchangeId: 'coinbase', exchangeName: 'Coinbase', makerFee: 0.004, takerFee: 0.006, fundingRate: 0.00015, fundingInterval: 8 },
+  { exchangeId: 'binance',  exchangeName: 'Binance',  makerFee: 0.001, takerFee: 0.001, fundingRate: 0.0001,  fundingInterval: 8 },
+  { exchangeId: 'kraken',   exchangeName: 'Kraken',   makerFee: 0.0016, takerFee: 0.0026, fundingRate: 0.00012, fundingInterval: 4 },
+  { exchangeId: 'gemini',   exchangeName: 'Gemini',   makerFee: 0.002, takerFee: 0.003, fundingRate: 0.00018, fundingInterval: 8 },
+  { exchangeId: 'kucoin',   exchangeName: 'KuCoin',   makerFee: 0.001, takerFee: 0.001, fundingRate: 0.00008, fundingInterval: 8 },
 ];
 
 export const positions: Position[] = [
@@ -409,3 +417,65 @@ export const trades: Trade[] = [
     feeCurrency: 'USD',
   },
 ];
+
+// Generate daily funding fees for perpetual positions on Binance (BTC and SOL)
+// Funding is paid every 8h; we record one aggregated daily entry per position
+function generateFundingFees(): FundingFee[] {
+  const fees: FundingFee[] = [];
+  const now = new Date('2026-03-17T00:00:00Z');
+
+  // BTC perp on Binance — 90 days
+  for (let i = 90; i >= 1; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    date.setHours(0, 0, 0, 0);
+
+    const btcPrice = 65000 + Math.sin(i * 0.1) * 5000;
+    const positionSize = 0.25 * btcPrice;
+    // funding rate varies around 0.01% per 8h, slightly negative sometimes
+    const rate = 0.0001 + Math.sin(i * 0.2) * 0.00005;
+    const amount = parseFloat((positionSize * rate * 3).toFixed(4)); // 3× per day
+
+    fees.push({
+      id: `ff-btc-${i}`,
+      positionId: 'pos-3',
+      exchangeId: 'binance',
+      exchangeName: 'Binance',
+      asset: 'Bitcoin',
+      symbol: 'BTC',
+      date: date.toISOString(),
+      amount,
+      rate: parseFloat((rate * 3).toFixed(6)),
+      positionSize: parseFloat(positionSize.toFixed(2)),
+    });
+  }
+
+  // SOL perp on Binance — 90 days
+  for (let i = 90; i >= 1; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    date.setHours(8, 0, 0, 0);
+
+    const solPrice = 170 + Math.sin(i * 0.15) * 20;
+    const positionSize = 35 * solPrice;
+    const rate = 0.00008 + Math.sin(i * 0.3) * 0.00003;
+    const amount = parseFloat((positionSize * rate * 3).toFixed(4));
+
+    fees.push({
+      id: `ff-sol-${i}`,
+      positionId: 'pos-4',
+      exchangeId: 'binance',
+      exchangeName: 'Binance',
+      asset: 'Solana',
+      symbol: 'SOL',
+      date: date.toISOString(),
+      amount,
+      rate: parseFloat((rate * 3).toFixed(6)),
+      positionSize: parseFloat(positionSize.toFixed(2)),
+    });
+  }
+
+  return fees;
+}
+
+export const fundingFees: FundingFee[] = generateFundingFees();

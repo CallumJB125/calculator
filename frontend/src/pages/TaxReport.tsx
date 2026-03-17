@@ -38,8 +38,10 @@ export default function TaxReport() {
   const filteredEvents =
     report?.events.filter(e => filterTerm === 'all' || e.termType === filterTerm) ?? [];
 
+  // Estimated tax: short-term at 37%, long-term at 20%, minus funding fee deduction
   const estimatedTax = report
-    ? report.shortTermGain * 0.37 + Math.max(0, report.longTermGain) * 0.2
+    ? Math.max(0, report.shortTermGain * 0.37 + Math.max(0, report.longTermGain) * 0.2
+        - report.totalDeductibleFundingFees * 0.37)
     : 0;
 
   return (
@@ -81,8 +83,8 @@ export default function TaxReport() {
         <div className="text-gray-400">Calculating taxes...</div>
       ) : report ? (
         <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          {/* Summary cards — capital gains */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
             <SummaryCard label="Total Proceeds" value={fmtUSD(report.totalProceeds)} />
             <SummaryCard label="Total Cost Basis" value={fmtUSD(report.totalCostBasis)} />
             <SummaryCard
@@ -106,14 +108,57 @@ export default function TaxReport() {
               label="Est. Tax Owed"
               value={fmtUSD(Math.max(0, estimatedTax))}
               color="text-yellow-400"
-              hint="Estimate only — consult a tax professional"
+              hint="After funding fee deduction"
+            />
+          </div>
+
+          {/* Funding fees deduction banner */}
+          {report.totalDeductibleFundingFees > 0 && (
+            <div className="mb-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-start gap-3">
+              <svg className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm text-emerald-400 font-medium">
+                  Funding Fee Deduction Applied — {fmtUSD(report.totalDeductibleFundingFees)}
+                </p>
+                <p className="text-xs text-emerald-600 mt-0.5">
+                  Funding fees paid on perpetual positions are deductible as investment expenses (IRC §212).
+                  Net taxable gain after deduction: <strong className="text-emerald-400">{fmtUSD(report.netTaxableGain)}</strong>
+                  {' '}(saving ≈ {fmtUSD(report.totalDeductibleFundingFees * 0.37)} in taxes at the 37% rate).
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Deduction summary card row */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <SummaryCard
+              label="Funding Fees Deduction"
+              value={fmtUSD(report.totalDeductibleFundingFees)}
+              color="text-emerald-400"
+              hint="Paid perpetual funding (§212)"
+            />
+            <SummaryCard
+              label="Net Taxable Gain"
+              value={fmtUSD(report.netTaxableGain)}
+              color={report.netTaxableGain >= 0 ? 'text-red-400' : 'text-emerald-400'}
+              hint="After funding fee deduction"
+            />
+            <SummaryCard
+              label="Tax Savings"
+              value={fmtUSD(report.totalDeductibleFundingFees * 0.37)}
+              color="text-yellow-400"
+              hint="Est. at 37% ordinary rate"
             />
           </div>
 
           {/* Disclaimer */}
           <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
             <p className="text-sm text-yellow-400">
-              <strong>Disclaimer:</strong> This is an estimate for informational purposes only. Tax estimates assume a 37% rate for short-term and 20% for long-term gains. Consult a qualified tax professional before filing.
+              <strong>Disclaimer:</strong> This is an estimate for informational purposes only. Tax estimates assume a 37% rate
+              for short-term and 20% for long-term gains. Funding fee deductibility may depend on your jurisdiction and tax status.
+              Consult a qualified tax professional before filing.
             </p>
           </div>
 
@@ -236,7 +281,10 @@ function SummaryCard({ label, value, color = 'text-white', hint }: {
 }
 
 function downloadCSV(report: TaxSummary) {
-  const headers = ['Asset', 'Exchange', 'Sell Date', 'Buy Date', 'Holding Days', 'Quantity', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Term'];
+  const headers = [
+    'Asset', 'Exchange', 'Sell Date', 'Buy Date', 'Holding Days',
+    'Quantity', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Term',
+  ];
   const rows = report.events.map(e => [
     e.symbol,
     e.exchangeName,
@@ -250,7 +298,15 @@ function downloadCSV(report: TaxSummary) {
     e.termType,
   ]);
 
-  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const meta = [
+    [],
+    ['Summary'],
+    ['Total Gains', report.totalGain.toFixed(2)],
+    ['Deductible Funding Fees', report.totalDeductibleFundingFees.toFixed(2)],
+    ['Net Taxable Gain', report.netTaxableGain.toFixed(2)],
+  ];
+
+  const csv = [[...headers], ...rows, ...meta].map(r => r.join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

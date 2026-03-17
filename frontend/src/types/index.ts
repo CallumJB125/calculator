@@ -153,3 +153,142 @@ export interface FundingFeeSummary {
   byExchange: Record<string, { paid: number; received: number; net: number }>;
   fees: FundingFee[];
 }
+
+// ── Tax-Loss Harvesting ───────────────────────────────────────────────────────
+
+export interface HarvestLot {
+  buyDate: string;
+  daysHeld: number;
+  termType: 'short' | 'long';
+  daysUntilLongTerm: number;
+  quantity: number;
+  costBasis: number;
+}
+
+export interface HarvestOpportunity {
+  positionId: string;
+  exchangeId: string;
+  exchangeName: string;
+  asset: string;
+  symbol: string;
+  quantity: number;
+  avgCostBasis: number;
+  currentPrice: number;
+  currentValue: number;
+  unrealizedLoss: number;
+  taxSavings: number;
+  washSaleRisk: boolean;
+  daysUntilSafe: number;
+  daysHeld: number;
+  termType: 'short' | 'long';
+  savingsRate: number;
+  lots: HarvestLot[];
+}
+
+export interface HarvestSummary {
+  taxYear: number;
+  existingGainsThisYear: number;
+  totalUnrealizedLoss: number;
+  totalPotentialSavings: number;
+  netGainAfterHarvest: number;
+  opportunities: HarvestOpportunity[];
+}
+
+// ── Tax Preview ───────────────────────────────────────────────────────────────
+
+export interface TaxPreviewLot {
+  buyDate: string;
+  quantity: number;
+  costPerUnit: number;
+  costBasisTotal: number;
+  proceeds: number;
+  gain: number;
+  daysHeld: number;
+  termType: 'short' | 'long';
+  daysUntilLongTerm: number;
+  estimatedTax: number;
+}
+
+export interface TaxPreviewInsight {
+  type: string;
+  message: string;
+  daysToWait: number;
+  potentialSavings: number;
+  flipDate: string;
+}
+
+export interface TaxPreview {
+  symbol: string;
+  quantity: number;
+  currentPrice: number;
+  proceeds: number;
+  costBasis: number;
+  gain: number;
+  shortTermGain: number;
+  longTermGain: number;
+  estimatedTax: number;
+  effectiveRate: number;
+  taxCostPct: number;
+  method: string;
+  lots: TaxPreviewLot[];
+  insight: TaxPreviewInsight | null;
+}
+
+// ── Arbitrage ─────────────────────────────────────────────────────────────────
+
+export interface ArbitrageOpportunity {
+  asset: string;
+  symbol: string;
+  quantity: number;
+  buyExchange: string;
+  buyExchangeId: string;
+  buyPrice: number;
+  buyFee: number;
+  sellExchange: string;
+  sellExchangeId: string;
+  sellPrice: number;
+  sellFee: number;
+  grossSpread: number;
+  grossSpreadPct: number;
+  totalFees: number;
+  netProfit: number;
+  netProfitPct: number;
+  viable: boolean;
+  breakEvenUnits: number | null;
+}
+
+export interface ArbitrageScanResult {
+  scannedAt: string;
+  connectedExchanges: string[];
+  quantity: number;
+  opportunities: ArbitrageOpportunity[];
+  viableCount: number;
+}
+
+// ── Portfolio Analytics ───────────────────────────────────────────────────────
+
+export interface ConcentrationEntry {
+  symbol: string;
+  value: number;
+  pct: number;
+  pnl: number;
+  pnlPct: number;
+}
+
+export interface PortfolioAnalytics {
+  totalValue: number;
+  concentration: ConcentrationEntry[];
+  herfindahlIndex: number;
+  concentrationRisk: 'high' | 'medium' | 'low';
+  diversificationScore: number;
+  bestPerformer:  { symbol: string; pct: number; pnl: number } | null;
+  worstPerformer: { symbol: string; pct: number; pnl: number } | null;
+  correlations: Array<{ asset1: string; asset2: string; correlation: number }>;
+  riskMetrics: {
+    portfolioVolatility: number;
+    sharpeRatio: number;
+    maxDrawdownEstimate: number;
+    valueAtRisk95: number;
+    dailyVolatilityPct: number;
+  };
+}

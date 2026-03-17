@@ -2,13 +2,16 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 const navItems = [
-  { to: '/',          label: 'Dashboard',     icon: GridIcon },
-  { to: '/exchanges', label: 'Exchanges',      icon: LinkIcon },
-  { to: '/positions', label: 'Positions',      icon: PieChartIcon },
-  { to: '/trades',    label: 'Trade History',  icon: ListIcon },
-  { to: '/execution', label: 'Best Execution', icon: ScaleIcon },
-  { to: '/funding',   label: 'Funding Fees',   icon: PercentIcon },
-  { to: '/taxes',     label: 'Tax Report',     icon: FileTextIcon },
+  { to: '/',          label: 'Dashboard',       icon: GridIcon },
+  { to: '/exchanges', label: 'Exchanges',        icon: LinkIcon },
+  { to: '/positions', label: 'Positions',        icon: PieChartIcon },
+  { to: '/trades',    label: 'Trade History',    icon: ListIcon },
+  { to: '/execution', label: 'Best Execution',   icon: ScaleIcon },
+  { to: '/arbitrage', label: 'Arb Radar',        icon: RadarIcon },
+  { to: '/funding',   label: 'Funding Fees',     icon: PercentIcon },
+  { to: '/harvest',   label: 'Tax Harvesting',   icon: LeafIcon },
+  { to: '/analytics', label: 'Risk Analytics',   icon: ChartIcon },
+  { to: '/taxes',     label: 'Tax Report',       icon: FileTextIcon },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -111,6 +114,30 @@ function PercentIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+    </svg>
+  );
+}
+
+function RadarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+    </svg>
+  );
+}
+
+function LeafIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+    </svg>
+  );
+}
+
+function ChartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
     </svg>
   );
 }

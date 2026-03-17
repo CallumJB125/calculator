@@ -9,6 +9,10 @@ import {
   TradableAsset,
   FundingFee,
   FundingFeeSummary,
+  HarvestSummary,
+  TaxPreview,
+  ArbitrageScanResult,
+  PortfolioAnalytics,
 } from '../types';
 
 const BASE = '/api';
@@ -90,5 +94,20 @@ export const api = {
     summary: (year?: number) =>
       get<FundingFeeSummary>(`/funding/summary${year ? `?year=${year}` : ''}`),
     years: () => get<number[]>('/funding/years'),
+  },
+  harvest: {
+    opportunities: (year?: number) =>
+      get<HarvestSummary>(`/harvest/opportunities${year ? `?year=${year}` : ''}`),
+  },
+  taxpreview: {
+    calculate: (symbol: string, quantity: number, method: 'fifo' | 'lifo' | 'hifo' = 'fifo') =>
+      get<TaxPreview>(`/taxpreview?symbol=${symbol}&quantity=${quantity}&method=${method}`),
+  },
+  arbitrage: {
+    scan: (quantity?: number) =>
+      get<ArbitrageScanResult>(`/arbitrage/scan${quantity ? `?quantity=${quantity}` : ''}`),
+  },
+  analytics: {
+    risk: () => get<PortfolioAnalytics>('/analytics/risk'),
   },
 };

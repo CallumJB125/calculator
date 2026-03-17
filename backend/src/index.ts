@@ -6,6 +6,10 @@ import tradesRouter from './routes/trades';
 import taxesRouter from './routes/taxes';
 import executionRouter from './routes/execution';
 import fundingRouter from './routes/funding';
+import harvestRouter from './routes/harvest';
+import taxpreviewRouter from './routes/taxpreview';
+import arbitrageRouter from './routes/arbitrage';
+import analyticsRouter from './routes/analytics';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -19,6 +23,10 @@ app.use('/api/trades', tradesRouter);
 app.use('/api/taxes', taxesRouter);
 app.use('/api/execution', executionRouter);
 app.use('/api/funding', fundingRouter);
+app.use('/api/harvest', harvestRouter);
+app.use('/api/taxpreview', taxpreviewRouter);
+app.use('/api/arbitrage', arbitrageRouter);
+app.use('/api/analytics', analyticsRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

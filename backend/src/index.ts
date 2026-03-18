@@ -10,6 +10,8 @@ import harvestRouter from './routes/harvest';
 import taxpreviewRouter from './routes/taxpreview';
 import arbitrageRouter from './routes/arbitrage';
 import analyticsRouter from './routes/analytics';
+import incomeRouter from './routes/income';
+import rebalanceRouter from './routes/rebalance';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -27,6 +29,8 @@ app.use('/api/harvest', harvestRouter);
 app.use('/api/taxpreview', taxpreviewRouter);
 app.use('/api/arbitrage', arbitrageRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/income', incomeRouter);
+app.use('/api/rebalance', rebalanceRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

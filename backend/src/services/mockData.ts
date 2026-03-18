@@ -1,4 +1,5 @@
-import { Exchange, Position, Trade, ExchangeFeeStructure, FundingFee } from '../types';
+import { Exchange, Position, Trade, ExchangeFeeStructure, FundingFee, StakingReward } from '../types';
+
 
 export const exchanges: Exchange[] = [
   {
@@ -479,3 +480,56 @@ function generateFundingFees(): FundingFee[] {
 }
 
 export const fundingFees: FundingFee[] = generateFundingFees();
+
+// Generate weekly staking rewards for ETH (Coinbase, 3.5% APY) and SOL (Binance, 7% APY)
+function generateStakingRewards(): StakingReward[] {
+  const rewards: StakingReward[] = [];
+  const now = new Date('2026-03-17T00:00:00Z');
+
+  // ETH staking on Coinbase — 52 weeks, 3.5% APY on 4.2 ETH
+  const ethWeeklyBase = (4.2 * 0.035) / 52; // ≈ 0.002827 ETH/week
+  for (let i = 52; i >= 1; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i * 7);
+    const ethPrice = 3200 + Math.sin(i * 0.18) * 400;
+    const quantity = parseFloat((ethWeeklyBase * (1 + Math.sin(i * 0.25) * 0.05)).toFixed(6));
+    const valueUSD = parseFloat((quantity * ethPrice).toFixed(2));
+    rewards.push({
+      id: `sr-eth-${i}`,
+      exchangeId: 'coinbase',
+      exchangeName: 'Coinbase',
+      asset: 'Ethereum',
+      symbol: 'ETH',
+      date: date.toISOString(),
+      quantity,
+      valueUSD,
+      priceAtReceipt: parseFloat(ethPrice.toFixed(2)),
+    });
+  }
+
+  // SOL staking on Binance — 52 weeks, 7% APY on 35 SOL
+  const solWeeklyBase = (35 * 0.07) / 52; // ≈ 0.04712 SOL/week
+  for (let i = 52; i >= 1; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i * 7);
+    date.setHours(12, 0, 0, 0);
+    const solPrice = 170 + Math.sin(i * 0.22) * 25;
+    const quantity = parseFloat((solWeeklyBase * (1 + Math.sin(i * 0.3) * 0.05)).toFixed(6));
+    const valueUSD = parseFloat((quantity * solPrice).toFixed(2));
+    rewards.push({
+      id: `sr-sol-${i}`,
+      exchangeId: 'binance',
+      exchangeName: 'Binance',
+      asset: 'Solana',
+      symbol: 'SOL',
+      date: date.toISOString(),
+      quantity,
+      valueUSD,
+      priceAtReceipt: parseFloat(solPrice.toFixed(2)),
+    });
+  }
+
+  return rewards;
+}
+
+export const stakingRewards: StakingReward[] = generateStakingRewards();

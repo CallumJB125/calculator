@@ -10,6 +10,8 @@ import FundingFees from './pages/FundingFees';
 import Harvest from './pages/Harvest';
 import Analytics from './pages/Analytics';
 import TaxReport from './pages/TaxReport';
+import Income from './pages/Income';
+import Rebalance from './pages/Rebalance';
 
 export default function App() {
   return (
@@ -24,6 +26,8 @@ export default function App() {
           <Route path="/arbitrage" element={<Arbitrage />} />
           <Route path="/funding" element={<FundingFees />} />
           <Route path="/harvest" element={<Harvest />} />
+          <Route path="/income" element={<Income />} />
+          <Route path="/rebalance" element={<Rebalance />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/taxes" element={<TaxReport />} />
           <Route path="*" element={<Navigate to="/" replace />} />

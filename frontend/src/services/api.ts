@@ -13,6 +13,9 @@ import {
   TaxPreview,
   ArbitrageScanResult,
   PortfolioAnalytics,
+  StakingIncomeSummary,
+  RebalancePlan,
+  CostBasisComparison,
 } from '../types';
 
 const BASE = '/api';
@@ -77,6 +80,7 @@ export const api = {
     report: (year: number, method: 'fifo' | 'lifo' | 'hifo' = 'fifo') =>
       get<TaxSummary>(`/taxes/report?year=${year}&method=${method}`),
     years: () => get<number[]>('/taxes/years'),
+    compare: (year: number) => get<CostBasisComparison>(`/taxes/compare?year=${year}`),
   },
   execution: {
     quotes: (asset: string, quantity: number, side: 'buy' | 'sell') =>
@@ -109,5 +113,14 @@ export const api = {
   },
   analytics: {
     risk: () => get<PortfolioAnalytics>('/analytics/risk'),
+  },
+  income: {
+    staking: (year?: number) =>
+      get<StakingIncomeSummary>(`/income/staking${year ? `?year=${year}` : ''}`),
+    years: () => get<number[]>('/income/years'),
+  },
+  rebalance: {
+    plan: (threshold?: number) =>
+      get<RebalancePlan>(`/rebalance/plan${threshold !== undefined ? `?threshold=${threshold}` : ''}`),
   },
 };

@@ -121,3 +121,71 @@ export interface FundingFeeSummary {
   byExchange: Record<string, { paid: number; received: number; net: number }>;
   fees: FundingFee[];
 }
+
+export interface StakingReward {
+  id: string;
+  exchangeId: string;
+  exchangeName: string;
+  asset: string;
+  symbol: string;
+  date: string;
+  quantity: number;
+  valueUSD: number;
+  priceAtReceipt: number;
+}
+
+export interface StakingIncomeSummary {
+  taxYear: number;
+  totalIncomeUSD: number;
+  estimatedTax: number;
+  byAsset: Record<string, { quantity: number; valueUSD: number; priceAvg: number }>;
+  byExchange: Record<string, { quantity: number; valueUSD: number }>;
+  rewards: StakingReward[];
+}
+
+export interface RebalanceTarget {
+  symbol: string;
+  asset: string;
+  targetPct: number;
+  currentPct: number;
+  drift: number;
+  currentValue: number;
+  targetValue: number;
+}
+
+export interface RebalanceTrade {
+  action: 'buy' | 'sell';
+  symbol: string;
+  asset: string;
+  quantity: number;
+  valueUSD: number;
+  recommendedExchange: string;
+  estimatedTaxImpact: number;
+  reason: string;
+}
+
+export interface RebalancePlan {
+  totalPortfolioValue: number;
+  targets: RebalanceTarget[];
+  trades: RebalanceTrade[];
+  estimatedTotalTax: number;
+  driftThreshold: number;
+}
+
+export interface CostBasisMethodResult {
+  method: 'fifo' | 'lifo' | 'hifo';
+  totalGain: number;
+  shortTermGain: number;
+  longTermGain: number;
+  estimatedTax: number;
+  netTaxableGain: number;
+}
+
+export interface CostBasisComparison {
+  taxYear: number;
+  results: CostBasisMethodResult[];
+  bestMethod: 'fifo' | 'lifo' | 'hifo';
+  worstMethod: 'fifo' | 'lifo' | 'hifo';
+  maxSavingsVsWorst: number;
+  recommendation: string;
+}

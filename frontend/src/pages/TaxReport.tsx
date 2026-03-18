@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { TaxSummary, TaxEvent } from '../types';
+import { TaxSummary, TaxEvent, CostBasisComparison } from '../types';
 import { fmtUSD, fmtDate } from '../utils/format';
 
 type Method = 'fifo' | 'lifo' | 'hifo';
@@ -19,6 +19,9 @@ export default function TaxReport() {
   const [loading, setLoading] = useState(true);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [filterTerm, setFilterTerm] = useState<'all' | 'short' | 'long'>('all');
+  const [comparison, setComparison] = useState<CostBasisComparison | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
+  const [loadingComparison, setLoadingComparison] = useState(false);
 
   useEffect(() => {
     api.taxes.years().then(y => {
@@ -34,6 +37,19 @@ export default function TaxReport() {
       setLoading(false);
     });
   }, [selectedYear, method]);
+
+  const handleCompare = () => {
+    if (comparison?.taxYear === selectedYear) {
+      setShowComparison(v => !v);
+      return;
+    }
+    setLoadingComparison(true);
+    setShowComparison(true);
+    api.taxes.compare(selectedYear).then(c => {
+      setComparison(c);
+      setLoadingComparison(false);
+    });
+  };
 
   const filteredEvents =
     report?.events.filter(e => filterTerm === 'all' || e.termType === filterTerm) ?? [];
@@ -68,6 +84,12 @@ export default function TaxReport() {
               <option key={m} value={m}>{METHOD_LABELS[m]}</option>
             ))}
           </select>
+          <button
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 border border-gray-700 text-gray-300 hover:text-white hover:border-gray-600 transition-colors"
+            onClick={handleCompare}
+          >
+            {showComparison ? 'Hide' : 'Compare'} Methods
+          </button>
           {report && (
             <button
               className="btn-primary"
@@ -161,6 +183,79 @@ export default function TaxReport() {
               Consult a qualified tax professional before filing.
             </p>
           </div>
+
+          {/* Cost Basis Method Optimizer */}
+          {showComparison && (
+            <div className="card mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-white">Cost Basis Method Optimizer</h2>
+                <span className="text-xs text-gray-500">Side-by-side FIFO / LIFO / HIFO comparison for {selectedYear}</span>
+              </div>
+              {loadingComparison ? (
+                <p className="text-gray-400 text-sm">Calculating...</p>
+              ) : comparison ? (
+                <>
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    {comparison.results.map(r => {
+                      const isBest  = r.method === comparison.bestMethod;
+                      const isWorst = r.method === comparison.worstMethod;
+                      return (
+                        <div
+                          key={r.method}
+                          className={`rounded-xl p-4 border transition-colors cursor-pointer ${
+                            method === r.method
+                              ? 'border-brand-500 bg-brand-600/10'
+                              : isBest
+                              ? 'border-emerald-500/40 bg-emerald-500/5'
+                              : 'border-gray-700 bg-gray-800/40'
+                          }`}
+                          onClick={() => setMethod(r.method)}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                              {r.method.toUpperCase()}
+                            </span>
+                            {isBest && (
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Best</span>
+                            )}
+                            {isWorst && !isBest && (
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-red-500/20 text-red-300">Highest Tax</span>
+                            )}
+                          </div>
+                          <p className="text-2xl font-bold text-white mb-1">{fmtUSD(r.estimatedTax)}</p>
+                          <p className="text-xs text-gray-500">Est. tax</p>
+                          <div className="mt-3 space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Total Gain</span>
+                              <span className={r.totalGain >= 0 ? 'text-red-400' : 'text-emerald-400'}>{fmtUSD(r.totalGain)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Short-Term</span>
+                              <span className="text-gray-300">{fmtUSD(r.shortTermGain)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Long-Term</span>
+                              <span className="text-gray-300">{fmtUSD(r.longTermGain)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+                    <p className="text-sm text-emerald-300 font-medium">
+                      Recommendation: {comparison.recommendation}
+                    </p>
+                    {comparison.maxSavingsVsWorst > 0 && (
+                      <p className="text-xs text-emerald-500 mt-1">
+                        Click a method card to switch the report to that method.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          )}
 
           {/* Events filter */}
           <div className="flex items-center justify-between mb-4">

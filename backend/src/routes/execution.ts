@@ -1,5 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { exchanges, exchangeFeeStructures, positions } from '../services/mockData';
+import { getExchanges, isLiveMode } from '../services/liveData';
+import { exchangeFeeStructures, positions } from '../services/mockData';
+import { fetchPrices, getPrice } from '../services/prices';
+import { fetchTickersForSymbol } from '../services/exchangeAdapters';
 import { BrokerQuote } from '../types';
 
 const router = Router();
@@ -24,14 +27,19 @@ router.get('/quotes', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'side must be buy or sell' });
   }
 
-  // Resolve base price from extended assets list or positions
-  const basePrice = getPriceForSymbol(symbol);
+  // Resolve base price — prefer live CoinGecko price, fall back to static list
+  let basePrice: number = getPrice(symbol) || 0;
+  if (!basePrice) {
+    const fallback = getPriceForSymbol(symbol);
+    if (fallback) basePrice = fallback;
+  }
   if (!basePrice) {
     return res.status(404).json({ error: `No price data found for ${symbol}` });
   }
   const tradeValue = basePrice * quantity;
 
-  const quotes: BrokerQuote[] = exchanges.map(exchange => {
+  const exchangeList = getExchanges();
+  const quotes: BrokerQuote[] = exchangeList.map(exchange => {
     const feeStructure = exchangeFeeStructures.find(f => f.exchangeId === exchange.id);
     if (!feeStructure) return null;
 

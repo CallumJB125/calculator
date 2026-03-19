@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../services/api';
 import { Exchange, Position, PortfolioSummary, TaxPreview } from '../types';
 import { fmtUSD, fmtPct, fmtDate } from '../utils/format';
 
-type ViewMode = 'by-exchange' | 'consolidated';
+type PositionTab = 'spot' | 'leverage';
 
 // ─── Tax Preview Modal ────────────────────────────────────────────────────────
 
@@ -27,7 +27,6 @@ function TaxPreviewModal({ symbol, onClose }: { symbol: string; onClose: () => v
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70">
       <div className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <div>
             <h2 className="text-base font-bold text-white">What If I Sell? — {symbol}</h2>
@@ -41,7 +40,6 @@ function TaxPreviewModal({ symbol, onClose }: { symbol: string; onClose: () => v
         </div>
 
         <div className="overflow-y-auto px-6 py-5">
-          {/* Inputs */}
           <div className="flex gap-3 mb-5">
             <div className="flex-1">
               <label className="block text-xs text-gray-500 mb-1.5">Quantity to Sell</label>
@@ -73,7 +71,6 @@ function TaxPreviewModal({ symbol, onClose }: { symbol: string; onClose: () => v
 
           {preview && (
             <>
-              {/* Summary */}
               <div className="grid grid-cols-3 gap-3 mb-5">
                 <div className="card text-center p-3">
                   <p className="text-xs text-gray-500 mb-0.5">Proceeds</p>
@@ -92,7 +89,6 @@ function TaxPreviewModal({ symbol, onClose }: { symbol: string; onClose: () => v
                 </div>
               </div>
 
-              {/* Short/long split */}
               {(preview.shortTermGain !== 0 || preview.longTermGain !== 0) && (
                 <div className="flex gap-3 mb-5">
                   <div className="flex-1 card p-3 text-center">
@@ -103,14 +99,13 @@ function TaxPreviewModal({ symbol, onClose }: { symbol: string; onClose: () => v
                   </div>
                   <div className="flex-1 card p-3 text-center">
                     <p className="text-xs text-gray-500 mb-0.5">Long-Term Gain (20%)</p>
-                    <p className={`text-sm font-semibold ${preview.longTermGain >= 0 ? 'text-emerald-400' : 'text-emerald-400'}`}>
+                    <p className="text-sm font-semibold text-emerald-400">
                       {preview.longTermGain >= 0 ? '+' : ''}{fmtUSD(preview.longTermGain)}
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Wait-for-long-term insight */}
               {preview.insight && (
                 <div className="mb-5 p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-lg flex gap-3">
                   <svg className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -126,7 +121,6 @@ function TaxPreviewModal({ symbol, onClose }: { symbol: string; onClose: () => v
                 </div>
               )}
 
-              {/* Lot breakdown */}
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Lot Breakdown ({preview.method.toUpperCase()})
               </h4>
@@ -170,16 +164,112 @@ function TaxPreviewModal({ symbol, onClose }: { symbol: string; onClose: () => v
   );
 }
 
+// ─── Broker Breakdown Modal ────────────────────────────────────────────────────
+
+function BrokerBreakdownModal({
+  symbol,
+  asset,
+  positions,
+  onPreview,
+  onClose,
+}: {
+  symbol: string;
+  asset: string;
+  positions: Position[];
+  onPreview: (symbol: string) => void;
+  onClose: () => void;
+}) {
+  const totalValue = positions.reduce((s, p) => s + p.currentValue, 0);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-xl shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+          <div>
+            <h2 className="text-base font-bold text-white">{asset} — Broker Breakdown</h2>
+            <p className="text-xs text-gray-500 mt-0.5">How your {symbol} is allocated across connected brokers</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          {positions.map(p => {
+            const sharePct = totalValue > 0 ? (p.currentValue / totalValue) * 100 : 0;
+            return (
+              <div key={p.id} className="bg-gray-800/50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-300">
+                      {p.exchangeName.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">{p.exchangeName}</p>
+                      <p className="text-xs text-gray-500">{sharePct.toFixed(1)}% of your {symbol}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-white">{fmtUSD(p.currentValue)}</p>
+                    <p className={`text-xs font-medium ${p.unrealizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {p.unrealizedPnl >= 0 ? '+' : ''}{fmtUSD(p.unrealizedPnl)}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <p className="text-gray-500 mb-0.5">Holdings</p>
+                    <p className="text-white">{p.quantity < 1 ? p.quantity.toFixed(4) : p.quantity.toFixed(2)} {p.symbol}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 mb-0.5">Avg Cost</p>
+                    <p className="text-white">{fmtUSD(p.avgCostBasis)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 mb-0.5">Return</p>
+                    <p className={p.unrealizedPnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                      {fmtPct(p.unrealizedPnlPct)}
+                    </p>
+                  </div>
+                </div>
+                {/* allocation bar */}
+                <div className="mt-3 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand-500 rounded-full"
+                    style={{ width: `${sharePct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="px-6 pb-5">
+          <button
+            onClick={() => { onClose(); onPreview(symbol); }}
+            className="w-full btn-primary py-2.5 text-sm"
+          >
+            Preview Tax Impact if I Sell
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Positions() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
-  const [filterExchange, setFilterExchange] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('by-exchange');
+  const [tab, setTab] = useState<PositionTab>('spot');
   const [loading, setLoading] = useState(true);
   const [previewSymbol, setPreviewSymbol] = useState<string | null>(null);
+  const [brokerSymbol, setBrokerSymbol] = useState<string | null>(null);
+
+  // Simulated live price drift (±0.5% per tick)
+  const [priceTick, setPriceTick] = useState(0);
+  const tickRef = useRef(0);
 
   useEffect(() => {
     Promise.all([
@@ -194,298 +284,277 @@ export default function Positions() {
     });
   }, []);
 
-  const filtered = filterExchange
-    ? positions.filter(p => p.exchangeId === filterExchange)
-    : positions;
+  // Real-time price simulation: nudge prices every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      tickRef.current += 1;
+      setPriceTick(t => t + 1);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const sorted = [...filtered].sort((a, b) => b.currentValue - a.currentValue);
+  // Apply simulated live drift to positions
+  const livePositions = positions.map(p => {
+    if (p.symbol === 'USDC') return p;
+    // deterministic drift based on tick + symbol seed
+    const seed = p.symbol.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+    const drift = Math.sin(tickRef.current * 0.4 + seed) * 0.003; // ±0.3%
+    const livePrice = parseFloat((p.currentPrice * (1 + drift)).toFixed(2));
+    const liveValue = parseFloat((p.quantity * livePrice).toFixed(2));
+    const livePnl = parseFloat((liveValue - p.avgCostBasis * p.quantity).toFixed(2));
+    const livePnlPct = parseFloat(((livePnl / (p.avgCostBasis * p.quantity)) * 100).toFixed(2));
+    return { ...p, currentPrice: livePrice, currentValue: liveValue, unrealizedPnl: livePnl, unrealizedPnlPct: livePnlPct };
+  });
 
-  if (loading) return <div className="p-8 text-gray-400">Loading...</div>;
+  // Split: spot vs leverage (positions with funding fees = leverage/perpetual)
+  const spotPositions = livePositions.filter(p => !(p.totalFundingFeesPaid && p.totalFundingFeesPaid > 0));
+  const leveragePositions = livePositions.filter(p => p.totalFundingFeesPaid && p.totalFundingFeesPaid > 0);
+  const activePositions = tab === 'spot' ? spotPositions : leveragePositions;
+
+  // Consolidate: merge same asset across brokers
+  const consolidatedMap = new Map<string, { asset: string; symbol: string; positions: Position[] }>();
+  for (const p of activePositions) {
+    if (!consolidatedMap.has(p.symbol)) {
+      consolidatedMap.set(p.symbol, { asset: p.asset, symbol: p.symbol, positions: [] });
+    }
+    consolidatedMap.get(p.symbol)!.positions.push(p);
+  }
+  const consolidated = [...consolidatedMap.values()].map(group => {
+    const totalQty = group.positions.reduce((s, p) => s + p.quantity, 0);
+    const totalValue = group.positions.reduce((s, p) => s + p.currentValue, 0);
+    const totalCost = group.positions.reduce((s, p) => s + p.avgCostBasis * p.quantity, 0);
+    const totalPnl = group.positions.reduce((s, p) => s + p.unrealizedPnl, 0);
+    const totalFunding = group.positions.reduce((s, p) => s + (p.totalFundingFeesPaid ?? 0), 0);
+    const pnlPct = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
+    const currentPrice = group.positions[0].currentPrice;
+    const brokerCount = group.positions.length;
+    return {
+      asset: group.asset,
+      symbol: group.symbol,
+      positions: group.positions,
+      totalQty,
+      totalValue,
+      totalCost,
+      totalPnl,
+      totalFunding,
+      pnlPct,
+      currentPrice,
+      brokerCount,
+    };
+  }).sort((a, b) => b.totalValue - a.totalValue);
+
+  // Live summary totals
+  const liveTotalValue = livePositions.reduce((s, p) => s + p.currentValue, 0);
+  const liveTotalPnl = livePositions.reduce((s, p) => s + p.unrealizedPnl, 0);
+  const liveTotalCost = livePositions.reduce((s, p) => s + p.avgCostBasis * p.quantity, 0);
+  const liveReturnPct = liveTotalCost > 0 ? ((liveTotalValue - liveTotalCost) / liveTotalCost) * 100 : 0;
+  const liveFunding = livePositions.reduce((s, p) => s + (p.totalFundingFeesPaid ?? 0), 0);
+
+  const brokerEntry = brokerSymbol ? consolidatedMap.get(brokerSymbol) : null;
+
+  if (loading) return <div className="p-8 text-gray-400">Loading positions...</div>;
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
       {previewSymbol && (
         <TaxPreviewModal symbol={previewSymbol} onClose={() => setPreviewSymbol(null)} />
       )}
-      <div className="mb-8 flex items-center justify-between">
+      {brokerEntry && (
+        <BrokerBreakdownModal
+          symbol={brokerEntry.symbol}
+          asset={brokerEntry.asset}
+          positions={brokerEntry.positions}
+          onPreview={sym => setPreviewSymbol(sym)}
+          onClose={() => setBrokerSymbol(null)}
+        />
+      )}
+
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Open Positions</h1>
-          <p className="text-gray-400 mt-1">Current holdings across all connected exchanges</p>
+          <p className="text-gray-400 mt-1">Live P&L across all connected exchanges</p>
         </div>
-        <div className="flex gap-3">
-          {/* View Toggle */}
-          <div className="flex rounded-lg overflow-hidden border border-gray-700">
-            <button
-              onClick={() => setViewMode('by-exchange')}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'by-exchange'
-                  ? 'bg-brand-600/30 text-brand-300 border-r border-brand-500/30'
-                  : 'bg-gray-800 text-gray-400 hover:text-gray-200 border-r border-gray-700'
-              }`}
-            >
-              By Exchange
-            </button>
-            <button
-              onClick={() => setViewMode('consolidated')}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'consolidated'
-                  ? 'bg-brand-600/30 text-brand-300'
-                  : 'bg-gray-800 text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              Consolidated
-            </button>
-          </div>
-
-          {viewMode === 'by-exchange' && (
-            <select
-              className="select"
-              value={filterExchange}
-              onChange={e => setFilterExchange(e.target.value)}
-            >
-              <option value="">All Exchanges</option>
-              {exchanges.map(e => (
-                <option key={e.id} value={e.id}>{e.name}</option>
-              ))}
-            </select>
-          )}
+        {/* Live indicator */}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-xs text-emerald-400 font-medium">Live</span>
         </div>
       </div>
 
-      {/* Summary strip */}
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <div className="card text-center">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Value</p>
-            <p className="text-xl font-bold text-white">{fmtUSD(summary.totalValue)}</p>
-          </div>
-          <div className="card text-center">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Cost Basis</p>
-            <p className="text-xl font-bold text-white">{fmtUSD(summary.totalCostBasis)}</p>
-            <p className="text-xs text-gray-600 mt-1">Across all exchanges</p>
-          </div>
-          <div className="card text-center">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Unrealized P&L</p>
-            <p className={`text-xl font-bold ${summary.totalUnrealizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {fmtUSD(summary.totalUnrealizedPnl)}
-            </p>
-          </div>
-          <div className="card text-center">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Return</p>
-            <p className={`text-xl font-bold ${summary.totalUnrealizedPnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {fmtPct(summary.totalUnrealizedPnlPct)}
-            </p>
-          </div>
-          <div className="card text-center">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Funding Fees Paid</p>
-            <p className="text-xl font-bold text-yellow-400">{fmtUSD(summary.totalFundingFeesPaid)}</p>
-            <p className="text-xs text-gray-600 mt-1">Tax deductible</p>
-          </div>
+      {/* Summary Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="card text-center">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Value</p>
+          <p className="text-xl font-bold text-white">{fmtUSD(liveTotalValue)}</p>
+          <p className="text-xs text-gray-600 mt-1">{livePositions.filter(p => p.symbol !== 'USDC').length} assets</p>
+        </div>
+        <div className="card text-center">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Unrealized P&L</p>
+          <p className={`text-xl font-bold ${liveTotalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {liveTotalPnl >= 0 ? '+' : ''}{fmtUSD(liveTotalPnl)}
+          </p>
+        </div>
+        <div className="card text-center">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Return</p>
+          <p className={`text-xl font-bold ${liveReturnPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {fmtPct(liveReturnPct)}
+          </p>
+        </div>
+        <div className="card text-center">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Funding Fees Paid</p>
+          <p className="text-xl font-bold text-yellow-400">{fmtUSD(liveFunding)}</p>
+          <p className="text-xs text-gray-600 mt-1">Tax deductible</p>
+        </div>
+      </div>
+
+      {/* Spot / Leverage Tabs */}
+      <div className="flex items-center gap-1 mb-5 bg-gray-800/50 p-1 rounded-xl w-fit border border-gray-700">
+        <button
+          onClick={() => setTab('spot')}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            tab === 'spot'
+              ? 'bg-brand-600 text-white shadow'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          Spot
+          <span className="ml-2 text-xs opacity-70">{spotPositions.length > 0 ? consolidatedMap.size - [...consolidatedMap.values()].filter(g => g.positions.every(p => p.totalFundingFeesPaid && p.totalFundingFeesPaid > 0)).length : 0}</span>
+        </button>
+        <button
+          onClick={() => setTab('leverage')}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            tab === 'leverage'
+              ? 'bg-orange-600 text-white shadow'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          Leverage / Perp
+          <span className="ml-2 text-xs opacity-70">{leveragePositions.length}</span>
+        </button>
+      </div>
+
+      {tab === 'leverage' && (
+        <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+          <p className="text-xs text-orange-400">
+            <strong>Leveraged / Perpetual Positions</strong> — these positions accrue funding fees every 8 hours.
+            Funding fees paid are tax-deductible as investment expenses. Track them on the Funding Fees page.
+          </p>
         </div>
       )}
 
-      {viewMode === 'by-exchange' ? (
-        <ByExchangeTable positions={sorted} onPreview={setPreviewSymbol} />
+      {/* Positions Table */}
+      {consolidated.length === 0 ? (
+        <div className="card text-center py-16">
+          <p className="text-gray-400 font-medium">No {tab} positions found</p>
+          <p className="text-sm text-gray-600 mt-1">
+            {tab === 'leverage'
+              ? 'No perpetual/leveraged positions detected. Open a perp on a connected exchange.'
+              : 'No spot positions found across your connected exchanges.'}
+          </p>
+        </div>
       ) : (
-        <ConsolidatedTable summary={summary} />
-      )}
-    </div>
-  );
-}
-
-// ─── By Exchange Table ────────────────────────────────────────────────────────
-
-function ByExchangeTable({ positions, onPreview }: {
-  positions: Position[];
-  onPreview: (symbol: string) => void;
-}) {
-  return (
-    <div className="card overflow-hidden p-0">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-800">
-              <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Asset</th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Holdings</th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Avg Cost</th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Current Price</th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Value</th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">P&L</th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Return</th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Funding Fees</th>
-              <th className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Tax Preview</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800">
-            {positions.map(p => (
-              <tr key={p.id} className="hover:bg-gray-800/50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-300">
-                      {p.symbol.slice(0, 2)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">{p.asset}</p>
-                      <p className="text-xs text-gray-500">{p.exchangeName}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <p className="text-sm text-white">
-                    {p.quantity < 1 ? p.quantity.toFixed(4) : p.quantity.toFixed(2)} {p.symbol}
-                  </p>
-                </td>
-                <td className="px-6 py-4 text-right text-sm text-gray-300">
-                  {fmtUSD(p.avgCostBasis)}
-                </td>
-                <td className="px-6 py-4 text-right text-sm text-white">
-                  {fmtUSD(p.currentPrice)}
-                </td>
-                <td className="px-6 py-4 text-right text-sm font-medium text-white">
-                  {fmtUSD(p.currentValue)}
-                </td>
-                <td className={`px-6 py-4 text-right text-sm font-medium ${p.unrealizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {p.unrealizedPnl >= 0 ? '+' : ''}{fmtUSD(p.unrealizedPnl)}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <span className={p.unrealizedPnlPct >= 0 ? 'badge-green' : 'badge-red'}>
-                    {fmtPct(p.unrealizedPnlPct)}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  {(p.totalFundingFeesPaid ?? 0) > 0 ? (
-                    <span className="text-sm text-yellow-400">{fmtUSD(p.totalFundingFeesPaid ?? 0)}</span>
-                  ) : (
-                    <span className="text-sm text-gray-600">—</span>
+        <div className="card overflow-hidden p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-800">
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Asset</th>
+                  <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Holdings</th>
+                  <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Live Price</th>
+                  <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Value</th>
+                  <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">P&L</th>
+                  <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Return</th>
+                  {tab === 'leverage' && (
+                    <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Funding Fees</th>
                   )}
-                </td>
-                <td className="px-6 py-4 text-center">
-                  {p.symbol !== 'USDC' && (
-                    <button
-                      onClick={() => onPreview(p.symbol)}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-brand-600/20 text-brand-400 border border-brand-500/20 hover:bg-brand-600/30 transition-colors whitespace-nowrap"
-                    >
-                      $ Preview
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ─── Consolidated Table ───────────────────────────────────────────────────────
-
-function ConsolidatedTable({ summary }: { summary: PortfolioSummary | null }) {
-  if (!summary) return null;
-
-  const rows = Object.entries(summary.byAsset)
-    .map(([symbol, data]) => ({ symbol, ...data }))
-    .sort((a, b) => b.value - a.value);
-
-  return (
-    <>
-      <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-        <p className="text-xs text-blue-400">
-          <strong>Consolidated View</strong> — holdings in the same asset are merged across all exchanges.
-          The <em>Avg Cost Basis</em> shown is a weighted average across brokers
-          (total cost ÷ total quantity).
-        </p>
-      </div>
-
-      <div className="card overflow-hidden p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-800">
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Asset</th>
-                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Total Holdings</th>
-                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Total Cost Basis</th>
-                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Wtd. Avg Cost</th>
-                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Current Price</th>
-                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Total Value</th>
-                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Unrealized P&L</th>
-                <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Funding Fees</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {rows.map(row => {
-                const pnlPct = row.totalCost > 0
-                  ? ((row.value - row.totalCost) / row.totalCost) * 100
-                  : 0;
-                return (
+                  <th className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Brokers</th>
+                  <th className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Tax Preview</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {consolidated.map(row => (
                   <tr key={row.symbol} className="hover:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-300">
+                        <div className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-300">
                           {row.symbol.slice(0, 2)}
                         </div>
-                        <p className="text-sm font-medium text-white">{row.symbol}</p>
+                        <div>
+                          <p className="text-sm font-semibold text-white">{row.asset}</p>
+                          <p className="text-xs text-gray-500">{row.symbol}</p>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right text-sm text-white">
-                      {row.totalQty < 1 ? row.totalQty.toFixed(4) : row.totalQty.toFixed(2)} {row.symbol}
+                    <td className="px-6 py-4 text-right">
+                      <p className="text-sm text-white">
+                        {row.totalQty < 1 ? row.totalQty.toFixed(4) : row.totalQty.toFixed(2)} {row.symbol}
+                      </p>
                     </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-300">
-                      {fmtUSD(row.totalCost)}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-300">
-                      {fmtUSD(row.avgCostBasis)}
-                      <p className="text-xs text-gray-600">per {row.symbol}</p>
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-white">
+                    <td className="px-6 py-4 text-right text-sm text-white font-medium">
                       {fmtUSD(row.currentPrice)}
                     </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium text-white">
-                      {fmtUSD(row.value)}
+                    <td className="px-6 py-4 text-right text-sm font-semibold text-white">
+                      {fmtUSD(row.totalValue)}
+                    </td>
+                    <td className={`px-6 py-4 text-right text-sm font-semibold ${row.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {row.totalPnl >= 0 ? '+' : ''}{fmtUSD(row.totalPnl)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <p className={`text-sm font-medium ${row.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {row.pnl >= 0 ? '+' : ''}{fmtUSD(row.pnl)}
-                      </p>
-                      <p className={`text-xs ${pnlPct >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {fmtPct(pnlPct)}
-                      </p>
+                      <span className={row.pnlPct >= 0 ? 'badge-green' : 'badge-red'}>
+                        {fmtPct(row.pnlPct)}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      {row.fundingFeesPaid > 0 ? (
-                        <span className="text-sm text-yellow-400">{fmtUSD(row.fundingFeesPaid)}</span>
-                      ) : (
-                        <span className="text-sm text-gray-600">—</span>
+                    {tab === 'leverage' && (
+                      <td className="px-6 py-4 text-right">
+                        {row.totalFunding > 0 ? (
+                          <span className="text-sm text-yellow-400">{fmtUSD(row.totalFunding)}</span>
+                        ) : (
+                          <span className="text-sm text-gray-600">—</span>
+                        )}
+                      </td>
+                    )}
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => setBrokerSymbol(row.symbol)}
+                        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-gray-700 text-gray-300 border border-gray-600 hover:bg-gray-600 hover:text-white transition-colors"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        {row.brokerCount} broker{row.brokerCount > 1 ? 's' : ''}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {row.symbol !== 'USDC' && (
+                        <button
+                          onClick={() => setPreviewSymbol(row.symbol)}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-brand-600/20 text-brand-400 border border-brand-500/20 hover:bg-brand-600/30 transition-colors whitespace-nowrap"
+                        >
+                          $ Preview
+                        </button>
                       )}
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-gray-700 bg-gray-900/50">
-                <td colSpan={2} className="px-6 py-3 text-sm font-semibold text-gray-400">Total</td>
-                <td className="px-6 py-3 text-right text-sm font-semibold text-gray-300">
-                  {fmtUSD(rows.reduce((s, r) => s + r.totalCost, 0))}
-                </td>
-                <td />
-                <td />
-                <td className="px-6 py-3 text-right text-sm font-semibold text-white">
-                  {fmtUSD(rows.reduce((s, r) => s + r.value, 0))}
-                </td>
-                <td className={`px-6 py-3 text-right text-sm font-bold ${
-                  rows.reduce((s, r) => s + r.pnl, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
-                }`}>
-                  {fmtUSD(rows.reduce((s, r) => s + r.pnl, 0))}
-                </td>
-                <td className="px-6 py-3 text-right text-sm font-semibold text-yellow-400">
-                  {fmtUSD(rows.reduce((s, r) => s + r.fundingFeesPaid, 0))}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </>
+      )}
+
+      {/* Connected brokers strip */}
+      {exchanges.length > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <p className="text-xs text-gray-600">Running on:</p>
+          {exchanges.map(e => (
+            <span key={e.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              {e.name}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

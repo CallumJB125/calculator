@@ -24,13 +24,11 @@ router.get('/quotes', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'side must be buy or sell' });
   }
 
-  // Resolve base price from any position holding this symbol
-  const position = positions.find(p => p.symbol === symbol);
-  if (!position) {
+  // Resolve base price from extended assets list or positions
+  const basePrice = getPriceForSymbol(symbol);
+  if (!basePrice) {
     return res.status(404).json({ error: `No price data found for ${symbol}` });
   }
-
-  const basePrice = position.currentPrice;
   const tradeValue = basePrice * quantity;
 
   const quotes: BrokerQuote[] = exchanges.map(exchange => {
@@ -131,17 +129,51 @@ router.get('/quotes', (req: Request, res: Response) => {
   });
 });
 
+// Extended tradeable assets list with real-world prices
+const TRADEABLE_ASSETS = [
+  { symbol: 'BTC',  asset: 'Bitcoin',        currentPrice: 67420.00 },
+  { symbol: 'ETH',  asset: 'Ethereum',       currentPrice: 3580.00  },
+  { symbol: 'SOL',  asset: 'Solana',         currentPrice: 178.50   },
+  { symbol: 'BNB',  asset: 'BNB',            currentPrice: 592.00   },
+  { symbol: 'XRP',  asset: 'XRP',            currentPrice: 0.52     },
+  { symbol: 'ADA',  asset: 'Cardano',        currentPrice: 0.48     },
+  { symbol: 'AVAX', asset: 'Avalanche',      currentPrice: 36.20    },
+  { symbol: 'DOGE', asset: 'Dogecoin',       currentPrice: 0.165    },
+  { symbol: 'DOT',  asset: 'Polkadot',       currentPrice: 7.45     },
+  { symbol: 'LINK', asset: 'Chainlink',      currentPrice: 14.80    },
+  { symbol: 'MATIC',asset: 'Polygon',        currentPrice: 0.88     },
+  { symbol: 'UNI',  asset: 'Uniswap',       currentPrice: 9.60     },
+  { symbol: 'LTC',  asset: 'Litecoin',       currentPrice: 83.50    },
+  { symbol: 'ATOM', asset: 'Cosmos',         currentPrice: 8.10     },
+  { symbol: 'XLM',  asset: 'Stellar',        currentPrice: 0.125    },
+  { symbol: 'ALGO', asset: 'Algorand',       currentPrice: 0.198    },
+  { symbol: 'NEAR', asset: 'NEAR Protocol',  currentPrice: 7.30     },
+  { symbol: 'FTM',  asset: 'Fantom',         currentPrice: 0.82     },
+  { symbol: 'SAND', asset: 'The Sandbox',    currentPrice: 0.44     },
+  { symbol: 'MANA', asset: 'Decentraland',   currentPrice: 0.39     },
+  { symbol: 'APE',  asset: 'ApeCoin',        currentPrice: 1.25     },
+  { symbol: 'ARB',  asset: 'Arbitrum',       currentPrice: 1.08     },
+  { symbol: 'OP',   asset: 'Optimism',       currentPrice: 2.35     },
+  { symbol: 'INJ',  asset: 'Injective',      currentPrice: 24.60    },
+  { symbol: 'SUI',  asset: 'Sui',            currentPrice: 1.45     },
+  { symbol: 'SEI',  asset: 'Sei',            currentPrice: 0.54     },
+  { symbol: 'TIA',  asset: 'Celestia',       currentPrice: 8.90     },
+  { symbol: 'JUP',  asset: 'Jupiter',        currentPrice: 0.92     },
+  { symbol: 'WIF',  asset: 'Dogwifhat',      currentPrice: 2.78     },
+  { symbol: 'PEPE', asset: 'Pepe',           currentPrice: 0.0000115 },
+];
+
 // GET /api/execution/assets — tradeable assets with current prices
 router.get('/assets', (_req: Request, res: Response) => {
-  const seen = new Set<string>();
-  const assets = positions
-    .filter(p => {
-      if (seen.has(p.symbol)) return false;
-      seen.add(p.symbol);
-      return true;
-    })
-    .map(p => ({ symbol: p.symbol, asset: p.asset, currentPrice: p.currentPrice }));
-  return res.json(assets);
+  return res.json(TRADEABLE_ASSETS);
 });
+
+// Helper to get price for any symbol
+function getPriceForSymbol(symbol: string): number | null {
+  const asset = TRADEABLE_ASSETS.find(a => a.symbol === symbol);
+  if (asset) return asset.currentPrice;
+  const pos = positions.find(p => p.symbol === symbol);
+  return pos ? pos.currentPrice : null;
+}
 
 export default router;

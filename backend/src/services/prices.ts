@@ -3,6 +3,20 @@
  * Caches prices for 30 seconds to stay well within limits.
  */
 
+import { ProxyAgent, fetch as undiciFetch } from 'undici';
+
+// Pick up the system proxy (set by the container environment)
+const PROXY_URL = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+const proxyAgent = PROXY_URL ? new ProxyAgent(PROXY_URL) : undefined;
+
+async function proxyFetch(url: string, options: { signal?: AbortSignal } = {}): Promise<Response> {
+  if (proxyAgent) {
+    const res = await undiciFetch(url, { ...options, dispatcher: proxyAgent } as any);
+    return res as unknown as Response;
+  }
+  return fetch(url, options);
+}
+
 interface PriceCache {
   prices: Record<string, number>;
   timestamp: number;
@@ -82,7 +96,7 @@ export async function fetchPrices(symbols?: string[]): Promise<Record<string, nu
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await proxyFetch(url, { signal: controller.signal });
     clearTimeout(timeout);
 
     if (!response.ok) {

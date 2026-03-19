@@ -9,6 +9,9 @@
 import ccxt, { Exchange, Trade, Ticker } from 'ccxt';
 import { getExchangeKeys, getAllConnectedExchanges, cacheBalances, updateLastSync } from './database';
 
+// Pass system proxy to CCXT so exchange API calls go through it
+const PROXY_URL = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+
 // Exchange class mapping
 const EXCHANGE_CLASSES: Record<string, new (config: any) => Exchange> = {
   coinbase: ccxt.coinbase,
@@ -41,6 +44,7 @@ function getExchangeInstance(exchangeId: string, apiKey: string, apiSecret: stri
     secret: apiSecret,
     enableRateLimit: true,
     timeout: 15000,
+    ...(PROXY_URL ? { httpsProxy: PROXY_URL } : {}),
     options: {
       defaultType: 'spot',
     },
@@ -222,6 +226,7 @@ export async function validateKeys(exchangeId: string, apiKey: string, apiSecret
     secret: apiSecret,
     enableRateLimit: true,
     timeout: 10000,
+    ...(PROXY_URL ? { httpsProxy: PROXY_URL } : {}),
   });
 
   try {
